@@ -5,3 +5,4 @@
 !*.ucf
 !*.xise
 !*.xco
+!ipcore_dir/*.ngc
