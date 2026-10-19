@@ -77,16 +77,13 @@ type state_type is (
 	IDLE,
 	CHECK,
 	
+	-- Write-back: 2 clocks per byte (set address, then strobe)
 	WB_SETUP,
-	WB_WAIT,
 	WB_STROBE,
-	WB_NEXT,
 	
+	-- Fetch: 2 clocks per byte (set address, then strobe + write SRAM)
 	FETCH_SETUP,
 	FETCH_STROBE,
-	FETCH_WAIT,
-	FETCH_WRITE,
-	FETCH_NEXT,
 	
 	READ_SETUP,
 	READ_WAIT,
@@ -101,7 +98,9 @@ signal transfer_offset	:	std_logic_vector(4 downto 0);
 
 begin
 
--- State number for ChipScope (IDLE=0, CHECK=1, WB_SETUP=2 ... WAIT_RELEASE=15)
+-- State number for ChipScope:
+-- 0=IDLE 1=CHECK 2=WB_SETUP 3=WB_STROBE 4=FETCH_SETUP 5=FETCH_STROBE
+-- 6=READ_SETUP 7=READ_WAIT 8=COMPLETE_READ 9=COMPLETE_WRITE 10=WAIT_RELEASE
 state_dbg <= STD_LOGIC_VECTOR(to_unsigned(state_type'pos(current_state), 4));
 
 cpu_tag <= saved_addr(15 downto 8);
@@ -158,16 +157,12 @@ begin
 				current_state <= FETCH_SETUP;
 			end if;
 			
+		-- Address goes out here. SRAM data is ready next clock.
 		when WB_SETUP =>
-			current_state <= WB_WAIT;
-			
-		when WB_WAIT =>
 			current_state <= WB_STROBE;
 			
+		-- Strobe SDRAM to write the byte, then move to the next one
 		when WB_STROBE =>
-			current_state <= WB_NEXT;
-			
-		when WB_NEXT =>
 			if byte_counter = 31 then
 				byte_counter <= 0;
 				current_state <= FETCH_SETUP;
@@ -176,19 +171,12 @@ begin
 				current_state <= WB_SETUP;
 			end if;
 			
+		-- Address goes out here. SDRAM data is ready next clock.
 		when FETCH_SETUP =>
 			current_state <= FETCH_STROBE;
 			
+		-- Strobe SDRAM and write its data into the cache SRAM
 		when FETCH_STROBE =>
-			current_state <= FETCH_WAIT;
-			
-		when FETCH_WAIT =>
-			current_state <= FETCH_WRITE;
-			
-		when FETCH_WRITE =>
-			current_state <= FETCH_NEXT;
-			
-		when FETCH_NEXT =>
 			if byte_counter = 31 then
 				
 				stored_tag(block_index) <= cpu_tag;
@@ -265,7 +253,7 @@ begin
 
 
 	-- WRITE BACK
-	when WB_SETUP | WB_WAIT | WB_STROBE | WB_NEXT =>
+	when WB_SETUP | WB_STROBE =>
 
 		sram_addr <= cpu_index & transfer_offset;
 
@@ -283,7 +271,7 @@ begin
 
 
 	-- FETCH
-	when FETCH_SETUP | FETCH_STROBE |FETCH_WAIT | FETCH_WRITE |FETCH_NEXT =>
+	when FETCH_SETUP | FETCH_STROBE =>
 
 		sram_addr <= cpu_index & transfer_offset;
 
@@ -295,10 +283,7 @@ begin
 		mux1_sel <= '1';
 
 		if current_state = FETCH_STROBE then
-		sdram_mstrb <= '1';
-		end if;
-
-		if current_state = FETCH_WRITE then
+			sdram_mstrb <= '1';
 			sram_wen <= '1';
 		end if;
 

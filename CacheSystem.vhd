@@ -137,11 +137,10 @@ begin
     sram_din_s <= cpu_data_s when mux1_sel_s = '0'
                   else mem_dout;
 
-    -- MUX2: routes SRAM output to SDRAM or CPU.
-    -- Both destinations can see the data; the controller
-    -- determines which transaction uses it.
-    mem_din <= sram_dout_s;
-    cpu_din <= sram_dout_s;
+    -- MUX2 (demux): sends SRAM output to the CPU (sel = 1)
+    -- or to the SDRAM (sel = 0), like Figure 3.
+    cpu_din <= sram_dout_s when mux2_sel_s = '1' else (others => '0');
+    mem_din <= sram_dout_s when mux2_sel_s = '0' else (others => '0');
 
     -- Convert scalar write enable to 1-bit vector
     sram_we_vec(0) <= sram_wen_s;

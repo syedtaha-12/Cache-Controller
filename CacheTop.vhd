@@ -24,9 +24,10 @@
 --   7..4  state
 --
 -- ILA DATA (32 bits):
---   3..0    state      (0=IDLE 1=CHECK 2-5=WB_* 6-10=FETCH_*
---                       11=READ_SETUP 12=READ_WAIT 13=COMPLETE_READ
---                       14=COMPLETE_WRITE 15=WAIT_RELEASE)
+--   3..0    state      (0=IDLE 1=CHECK 2=WB_SETUP 3=WB_STROBE
+--                       4=FETCH_SETUP 5=FETCH_STROBE 6=READ_SETUP
+--                       7=READ_WAIT 8=COMPLETE_READ 9=COMPLETE_WRITE
+--                       10=WAIT_RELEASE)
 --   4       cs
 --   5       cpu_rdy
 --   6       cpu_wr_rd
@@ -34,7 +35,7 @@
 --   8       mem_wr_rd
 --   9       sram_wen
 --   17..10  sram_addr  (index & offset)
---   25..18  sram dout  (= data to CPU and data to SDRAM)
+--   25..18  sram data out (to CPU on reads, to SDRAM on write-back)
 --   31..26  mem_addr(13..8)  (low 6 bits of the tag sent to SDRAM)
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -154,7 +155,7 @@ begin
 	ila_data(8) <= mem_wr_rd;
 	ila_data(9) <= sram_wen;
 	ila_data(17 downto 10) <= sram_addr;
-	ila_data(25 downto 18) <= cpu_din;
+	ila_data(25 downto 18) <= cpu_din or mem_din;  -- only one is non-zero
 	ila_data(31 downto 26) <= mem_addr(13 downto 8);
 
 	ICON_UNIT : icon
