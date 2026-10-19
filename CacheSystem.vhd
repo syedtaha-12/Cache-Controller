@@ -35,7 +35,15 @@ entity CacheSystem is
 
         -- CPU response
         cpu_din : out STD_LOGIC_VECTOR(7 downto 0);
-        cpu_rdy : out STD_LOGIC
+        cpu_rdy : out STD_LOGIC;
+
+        -- Debug outputs (for ChipScope on hardware)
+        dbg_state : out STD_LOGIC_VECTOR(3 downto 0);
+        dbg_cs : out STD_LOGIC;
+        dbg_wr_rd : out STD_LOGIC;
+        dbg_cpu_addr : out STD_LOGIC_VECTOR(15 downto 0);
+        dbg_sram_addr : out STD_LOGIC_VECTOR(7 downto 0);
+        dbg_sram_wen : out STD_LOGIC
     );
 end CacheSystem;
 
@@ -114,8 +122,16 @@ begin
             sram_wen => sram_wen_s,
 
             mux1_sel => mux1_sel_s,
-            mux2_sel => mux2_sel_s
+            mux2_sel => mux2_sel_s,
+            state_dbg => dbg_state
         );
+
+    -- Debug connections
+    dbg_cs <= cpu_cs_s;
+    dbg_wr_rd <= cpu_wr_rd_s;
+    dbg_cpu_addr <= cpu_addr_s;
+    dbg_sram_addr <= sram_addr_s;
+    dbg_sram_wen <= sram_wen_s;
 
     -- MUX1: selects data written into SRAM
     sram_din_s <= cpu_data_s when mux1_sel_s = '0'

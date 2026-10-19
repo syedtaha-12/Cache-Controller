@@ -44,7 +44,9 @@ entity CacheController is
 		sram_addr	:	out STD_LOGIC_VECTOR(7 downto 0);
 		sram_wen	:	out STD_LOGIC;
 		mux1_sel	:	out STD_LOGIC;
-		mux2_sel	: out STD_LOGIC
+		mux2_sel	: out STD_LOGIC;
+		-- Debug: current FSM state as a number (for ChipScope)
+		state_dbg	:	out STD_LOGIC_VECTOR(3 downto 0)
 	);
 end CacheController;
 
@@ -98,6 +100,9 @@ signal current_state	:	state_type;
 signal transfer_offset	:	std_logic_vector(4 downto 0);
 
 begin
+
+-- State number for ChipScope (IDLE=0, CHECK=1, WB_SETUP=2 ... WAIT_RELEASE=15)
+state_dbg <= STD_LOGIC_VECTOR(to_unsigned(state_type'pos(current_state), 4));
 
 cpu_tag <= saved_addr(15 downto 8);
 cpu_index <= saved_addr(7 downto 5);

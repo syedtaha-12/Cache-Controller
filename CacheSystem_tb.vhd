@@ -21,7 +21,14 @@ architecture behavior of CacheSystem_tb is
             mem_strb : out std_logic;
 
             cpu_din : out std_logic_vector(7 downto 0);
-            cpu_rdy : out std_logic
+            cpu_rdy : out std_logic;
+
+            dbg_state : out std_logic_vector(3 downto 0);
+            dbg_cs : out std_logic;
+            dbg_wr_rd : out std_logic;
+            dbg_cpu_addr : out std_logic_vector(15 downto 0);
+            dbg_sram_addr : out std_logic_vector(7 downto 0);
+            dbg_sram_wen : out std_logic
         );
     end component;
 
@@ -57,6 +64,19 @@ architecture behavior of CacheSystem_tb is
 
     signal memory : memory_type := init_memory;
 
+    -- Expected CPU read data for each transaction ("--" = write, no check)
+    type exp_array is array (0 to 7) of std_logic_vector(7 downto 0);
+    constant EXPECTED : exp_array := (
+        "--------",  -- 1: write AA to 0x1100
+        "--------",  -- 2: write BB to 0x1102
+        x"AA",       -- 3: read 0x1100
+        x"BB",       -- 4: read 0x1102
+        x"46",       -- 5: read 0x3346 (fresh block from memory)
+        x"44",       -- 6: read 0x4444 (fresh block from memory)
+        "--------",  -- 7: write CC to 0x5504
+        x"06"        -- 8: read 0x6606 (fresh block from memory)
+    );
+
     signal read_count : integer := 0;
     signal write_count : integer := 0;
 
@@ -78,7 +98,14 @@ begin
             mem_strb => mem_strb,
 
             cpu_din => cpu_din,
-            cpu_rdy => cpu_rdy
+            cpu_rdy => cpu_rdy,
+
+            dbg_state => open,
+            dbg_cs => open,
+            dbg_wr_rd => open,
+            dbg_cpu_addr => open,
+            dbg_sram_addr => open,
+            dbg_sram_wen => open
         );
 
 
@@ -180,6 +207,14 @@ begin
 					wait until cpu_rdy = '1';
 				end if;
 
+            -- Check read data
+            if EXPECTED(i) /= "--------" then
+                assert cpu_din = EXPECTED(i)
+                    report "Transaction " & integer'image(i + 1)
+                        & ": WRONG read data"
+                    severity error;
+            end if;
+
             report "Transaction " & integer'image(i + 1)
                 & " complete. SDRAM reads = "
                 & integer'image(read_count)
@@ -190,6 +225,12 @@ begin
             wait for 5 * clk_period;
 
         end loop;
+
+        -- Check the dirty blocks were written back to main memory
+        assert memory(16#1100#) = x"AA" and memory(16#1102#) = x"BB"
+            report "Write-back of block 0x1100 is WRONG" severity error;
+        assert memory(16#5504#) = x"CC"
+            report "Write-back of block 0x5500 is WRONG" severity error;
 
         report "All eight CPU transactions completed.";
 
