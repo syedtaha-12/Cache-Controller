@@ -43,12 +43,13 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity CacheTop is
 	Port(
-		clk	:	in STD_LOGIC
+		clk	:	in STD_LOGIC                         -- 50 MHz board oscillator (pin C9)
 	);
 end CacheTop;
 
 architecture Structural of CacheTop is
 
+	-- Component declaration: ChipScope ICON, JTAG hub with 2 control ports (ILA, VIO)
 	component icon
 		port(
 			CONTROL0	:	inout STD_LOGIC_VECTOR(35 downto 0);
@@ -56,6 +57,7 @@ architecture Structural of CacheTop is
 		);
 	end component;
 
+	-- Component declaration: ChipScope ILA, logic analyzer (32 data bits, 8 trigger bits, 512 samples)
 	component ila
 		port(
 			CONTROL	:	inout STD_LOGIC_VECTOR(35 downto 0);
@@ -65,6 +67,7 @@ architecture Structural of CacheTop is
 		);
 	end component;
 
+	-- Component declaration: ChipScope VIO, 18 outputs driven from the PC
 	component vio
 		port(
 			CONTROL		:	inout STD_LOGIC_VECTOR(35 downto 0);
@@ -105,7 +108,7 @@ begin
 	rst <= vio_out(0);
 	trig <= vio_out(1);
 
-	-- Cache system (CPU + controller + cache BRAM)
+	-- Instantiation: cache system (CPU + controller + cache BRAM + muxes)
 	CACHE : entity work.CacheSystem
 		port map(
 			clk => clk,
@@ -129,7 +132,7 @@ begin
 			dbg_sram_wen => sram_wen
 		);
 
-	-- Main memory
+	-- Instantiation: main memory (on-chip block RAM with the SDRAM controller interface)
 	MAIN_MEM : entity work.SDRAM_model
 		port map(
 			clk => clk,
@@ -158,6 +161,7 @@ begin
 	ila_data(25 downto 18) <= cpu_din or mem_din;  -- only one is non-zero
 	ila_data(31 downto 26) <= mem_addr(13 downto 8);
 
+	-- Instantiation: ChipScope cores (ICON hub -> ILA on CONTROL0, VIO on CONTROL1)
 	ICON_UNIT : icon
 		port map(
 			CONTROL0 => control0,
