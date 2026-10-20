@@ -1,45 +1,19 @@
 ----------------------------------------------------------------------------------
 -- Company: Toronto Metropolitan University
 -- Engineer: Anoosh Zaidi & Taha Syed
---
--- Module Name:    CacheTop - Structural
--- Project Name:   Memory Hierarchy: Cache Controller
--- Target Device:  XC3S500E (Spartan-3E, FG320)
--- Description:    Hardware top level. Set this as the TOP module in ISE.
---
---                 CacheSystem  - CPU_gen + cache controller + cache BRAM
---                 SDRAM_model  - main memory (block RAM on the FPGA)
---                 ICON         - ChipScope JTAG hub (2 control ports)
---                 VIO          - lets you drive rst and trig from the PC
---                 ILA          - captures the signals for the waveform
---
--- VIO ASYNC_OUT:  bit 0 = rst   (set to 1 then back to 0 to reset)
---                 bit 1 = trig  (set 1 then 0 to fire one CPU transaction)
---
--- ILA TRIG0 (8 bits):
---   0     cs           <- trigger on this rising edge
---   1     cpu_rdy
---   2     mem_strb
---   3     cpu_wr_rd
---   7..4  state
---
--- ILA DATA (32 bits):
---   3..0    state      (0=IDLE 1=CHECK 2=WB_SETUP 3=WB_STROBE
---                       4=FETCH_SETUP 5=FETCH_STROBE 6=READ_SETUP
---                       7=READ_WAIT 8=COMPLETE_READ 9=COMPLETE_WRITE
---                       10=WAIT_RELEASE)
---   4       cs
---   5       cpu_rdy
---   6       cpu_wr_rd
---   7       mem_strb
---   8       mem_wr_rd
---   9       sram_wen
---   17..10  sram_addr  (index & offset)
---   25..18  sram data out (to CPU on reads, to SDRAM on write-back)
---   31..26  mem_addr(13..8)  (low 6 bits of the tag sent to SDRAM)
+-- Project Name: Memory Hierarchy: Cache Controller (COE758 Project 1)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+
+-- Hardware top level (set as TOP in ISE).
+--   CacheSystem  - CPU_gen + cache controller + cache BRAM
+--   SDRAM_model  - main memory (block RAM on the FPGA)
+--   ICON / ILA / VIO - ChipScope hub, logic analyzer and virtual I/O
+-- VIO ASYNC_OUT: bit 0 = rst, bit 1 = trig (1 then 0 fires one CPU request)
+-- ILA TRIG0: 0 cs (trigger on rising edge), 1 cpu_rdy, 2 mem_strb, 3 wr_rd, 7-4 state
+-- ILA DATA:  3-0 state, 4 cs, 5 cpu_rdy, 6 wr_rd, 7 mem_strb, 8 mem_wr_rd,
+--            9 sram_wen, 17-10 sram_addr, 25-18 SRAM data out, 31-26 tag bits 13-8
 
 entity CacheTop is
 	Port(
@@ -76,11 +50,11 @@ architecture Structural of CacheTop is
 	end component;
 
 	-- ChipScope
-	signal control0	:	STD_LOGIC_VECTOR(35 downto 0);
-	signal control1	:	STD_LOGIC_VECTOR(35 downto 0);
-	signal vio_out		:	STD_LOGIC_VECTOR(17 downto 0);
-	signal ila_data	:	STD_LOGIC_VECTOR(31 downto 0);
-	signal ila_trig	:	STD_LOGIC_VECTOR(7 downto 0);
+	signal control0	:	STD_LOGIC_VECTOR(35 downto 0);   -- ICON <-> ILA
+	signal control1	:	STD_LOGIC_VECTOR(35 downto 0);   -- ICON <-> VIO
+	signal vio_out		:	STD_LOGIC_VECTOR(17 downto 0);   -- VIO outputs (bit 0 rst, bit 1 trig)
+	signal ila_data	:	STD_LOGIC_VECTOR(31 downto 0);   -- signals captured by the ILA
+	signal ila_trig	:	STD_LOGIC_VECTOR(7 downto 0);    -- ILA trigger inputs
 
 	-- Control from VIO
 	signal rst	:	STD_LOGIC;
@@ -114,16 +88,13 @@ begin
 			clk => clk,
 			rst => rst,
 			trig => trig,
-
 			mem_dout => mem_dout,
 			mem_din => mem_din,
 			mem_addr => mem_addr,
 			mem_wr_rd => mem_wr_rd,
 			mem_strb => mem_strb,
-
 			cpu_din => cpu_din,
 			cpu_rdy => cpu_rdy,
-
 			dbg_state => state,
 			dbg_cs => cs,
 			dbg_wr_rd => wr_rd,

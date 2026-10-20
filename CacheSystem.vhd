@@ -1,18 +1,16 @@
 ----------------------------------------------------------------------------------
 -- Company: Toronto Metropolitan University
 -- Engineer: Anoosh Zaidi & Taha Syed
---
--- Create Date:    19:51:33 10/16/2026
--- Module Name:    CacheSystem - Structural
--- Project Name:   Memory Hierarchy: Cache Controller
--- Description:    Complete cache system from Figure 3 of the handout.
---                 Connects the CPU (CPU_gen), the cache controller, the local
---                 cache SRAM (bram core) and the two data multiplexers.
---                 The SDRAM side is brought out as ports so it can connect to
---                 the testbench memory (simulation) or SDRAM_model (hardware).
+-- Project Name: Memory Hierarchy: Cache Controller (COE758 Project 1)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+
+-- Complete cache system from Figure 3 of the handout.
+-- Connects the CPU (CPU_gen), the cache controller, the local cache SRAM
+-- (bram core) and the two data multiplexers. The SDRAM side is brought out
+-- as ports so it can connect to the testbench memory (simulation) or
+-- SDRAM_model (hardware).
 
 entity CacheSystem is
     Port (
@@ -96,14 +94,11 @@ begin
             cpu_wr_rd => cpu_wr_rd_s,
             cpu_cs => cpu_cs_s,
             cpu_rdy => cpu_rdy,
-
             sdram_addr => mem_addr,
             sdram_wr_rd => mem_wr_rd,
             sdram_mstrb => mem_strb,
-
             sram_addr => sram_addr_s,
             sram_wen => sram_wen_s,
-
             mux1_sel => mux1_sel_s,
             mux2_sel => mux2_sel_s,
             state_dbg => dbg_state

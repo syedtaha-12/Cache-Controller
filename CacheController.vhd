@@ -1,28 +1,16 @@
 ----------------------------------------------------------------------------------
 -- Company: Toronto Metropolitan University
 -- Engineer: Anoosh Zaidi & Taha Syed
--- 
--- Create Date:    18:43:06 10/06/2026 
--- Design Name: 
--- Module Name:    CacheController - Behavioral 
--- Project Name: Memory Hierarchy: Cache Controller
--- Target Devices: 
--- Tool versions: 
--- Description:  Direct-mapped, write-back cache controller.
---                 8 blocks x 32 bytes (256 B). Address = Tag(15-8) | Index(7-5) | Offset(4-0).
---                 Handles 4 cases: write hit, read hit, miss with dirty = 0
---                 (fetch block) and miss with dirty = 1 (write back, then fetch).
---
--- Dependencies: 
---
--- Revision: 
--- Revision 0.01 - File Created
--- Additional Comments: 
---
+-- Project Name: Memory Hierarchy: Cache Controller (COE758 Project 1)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+
+-- Direct-mapped, write-back cache controller.
+-- 8 blocks x 32 bytes (256 B). Address = Tag(15-8) | Index(7-5) | Offset(4-0).
+-- Handles 4 cases: write hit, read hit, miss with dirty = 0
+-- (fetch block) and miss with dirty = 1 (write back, then fetch).
 
 entity CacheController is
 	Port(
@@ -76,15 +64,12 @@ signal byte_counter	:	integer range 0 to 31;         -- byte number during write
 type state_type is (
 	IDLE,
 	CHECK,
-	
 	-- Write-back: 2 clocks per byte (set address, then strobe)
 	WB_SETUP,
 	WB_STROBE,
-	
 	-- Fetch: 2 clocks per byte (set address, then strobe + write SRAM)
 	FETCH_SETUP,
 	FETCH_STROBE,
-	
 	READ_SETUP,
 	READ_WAIT,
 	COMPLETE_READ,
@@ -112,7 +97,7 @@ block_index <= to_integer(unsigned(cpu_index));
 
 transfer_offset <= 
 	STD_LOGIC_VECTOR(to_unsigned(byte_counter, 5));
-	
+
 -- Hit = selected block is valid AND its stored tag matches the CPU tag
 cache_hit <= '1' when (
 	valid_bits(block_index) = '1' and cpu_tag = stored_tag(block_index)
@@ -127,17 +112,15 @@ begin
 	if rst = '1' then
 		valid_bits <= "00000000";
 		dirty_bits <= "00000000";
-		
 		saved_addr <= (others => '0');
 		saved_wr_rd <= '0';
-		
 		byte_counter <= 0;
 		current_state <= IDLE;
-		
+
 	elsif rising_edge(clk) then
-	
+
 		case current_state is
-		
+
 		-- Wait for a CPU request, then save it in the AWR
 		when IDLE =>
 			if cpu_cs = '1' then
@@ -145,30 +128,27 @@ begin
 				saved_wr_rd <= cpu_wr_rd;
 				current_state <= CHECK;
 			end if;
-			
+
 		-- Decide: hit (read/write), miss + dirty (write back), or miss + clean (fetch)
 		when CHECK =>
 			byte_counter <= 0;
-			
 			if cache_hit = '1' then
 				if saved_wr_rd = '1' then
 					current_state <= COMPLETE_WRITE;
 				else
 					current_state <= READ_SETUP;
-			end if;
-			
+				end if;
 			elsif valid_bits(block_index) = '1'
 			and dirty_bits(block_index) = '1' then
 				current_state <= WB_SETUP;
-				
 			else
 				current_state <= FETCH_SETUP;
 			end if;
-			
+
 		-- Address goes out here. SRAM data is ready next clock.
 		when WB_SETUP =>
 			current_state <= WB_STROBE;
-			
+
 		-- Strobe SDRAM to write the byte, then move to the next one
 		when WB_STROBE =>
 			if byte_counter = 31 then
@@ -178,11 +158,11 @@ begin
 				byte_counter <= byte_counter + 1;
 				current_state <= WB_SETUP;
 			end if;
-			
+
 		-- Address goes out here. SDRAM data is ready next clock.
 		when FETCH_SETUP =>
 			current_state <= FETCH_STROBE;
-			
+
 		-- Strobe SDRAM and write its data into the cache SRAM
 		when FETCH_STROBE =>
 			if byte_counter = 31 then
@@ -190,33 +170,29 @@ begin
 				stored_tag(block_index) <= cpu_tag;
 				valid_bits(block_index) <= '1';
 				dirty_bits(block_index) <= '0';
-				
 				byte_counter <= 0;
-				
 				if saved_wr_rd = '1' then
 					current_state <= COMPLETE_WRITE;
 				else
 					current_state <= READ_SETUP;
 				end if;
-
 			else
 				byte_counter <= byte_counter + 1;
 				current_state <= FETCH_SETUP;
 			end if;
-
 
 		-- Finish the original CPU request (now a hit)
 
 		-- Read: put Index & Offset on the SRAM, wait 1 clock for data, hold it for the CPU
 		when READ_SETUP => 
 			current_state <= READ_WAIT;
-			
+
 		when READ_WAIT =>
 			current_state <= COMPLETE_READ;
-			
+
 		when COMPLETE_READ =>
 			current_state <=  WAIT_RELEASE;
-			
+
 		-- Write: byte written into SRAM this clock; block is now changed (dirty)
 		when COMPLETE_WRITE =>
 			dirty_bits(block_index) <= '1';
@@ -230,7 +206,6 @@ begin
 			end if;
 
 		end case;
-		
 	end if;
 end process;
 
@@ -239,22 +214,16 @@ end process;
 -- Drives RDY, the SRAM and SDRAM addresses/controls and the mux selects.
 ----------------------------------------------------------------------------------
 process(current_state, cpu_index, cpu_offset, stored_tag, block_index, cpu_tag, transfer_offset)
-
 begin
-
 	-- Safe defaults
 	cpu_rdy <= '0';
-
 	sram_addr <= (others => '0');
 	sram_wen <= '0';
-
 	sdram_addr <= (others => '0');
 	sdram_wr_rd <= '0';
 	sdram_mstrb <= '0';
-
 	mux1_sel <= '0';
 	mux2_sel <= '1';
-
 
 	case current_state is
 
@@ -264,73 +233,46 @@ begin
 		when CHECK =>
 			null;
 
+		-- WRITE BACK: old block -> SDRAM at stored Tag & Index & byte
+		when WB_SETUP | WB_STROBE =>
+			sram_addr <= cpu_index & transfer_offset;
+			sdram_addr <= stored_tag(block_index) & cpu_index & transfer_offset;
+			sram_wen <= '0';
+			sdram_wr_rd <= '1';
+			mux2_sel <= '0';                  -- SRAM DOUT -> SDRAM DIN
+			if current_state = WB_STROBE then
+				sdram_mstrb <= '1';
+			end if;
 
-	-- WRITE BACK: old block -> SDRAM at stored Tag & Index & byte
-	when WB_SETUP | WB_STROBE =>
+		-- FETCH: new block <- SDRAM at CPU Tag & Index & byte
+		when FETCH_SETUP | FETCH_STROBE =>
+			sram_addr <= cpu_index & transfer_offset;
+			sdram_addr <= cpu_tag & cpu_index & transfer_offset;
+			sdram_wr_rd <= '0';
+			mux1_sel <= '1';                  -- SDRAM DOUT -> SRAM DIN
+			if current_state = FETCH_STROBE then
+				sdram_mstrb <= '1';
+				sram_wen <= '1';
+			end if;
 
-		sram_addr <= cpu_index & transfer_offset;
+		-- CPU READ: SRAM at Index & Offset -> CPU
+		when READ_SETUP | READ_WAIT | COMPLETE_READ =>
+			sram_addr <= cpu_index & cpu_offset;
+			sram_wen <= '0';
+			mux2_sel <= '1';                  -- SRAM DOUT -> CPU DIN
 
-		sdram_addr <= stored_tag(block_index) & cpu_index & transfer_offset;
-
-		sram_wen <= '0';
-		sdram_wr_rd <= '1';
-
-	-- SRAM DOUT -> SDRAM DIN
-		mux2_sel <= '0';
-
-		if current_state = WB_STROBE then
-			sdram_mstrb <= '1';
-		end if;
-
-
-	-- FETCH: new block <- SDRAM at CPU Tag & Index & byte
-	when FETCH_SETUP | FETCH_STROBE =>
-
-		sram_addr <= cpu_index & transfer_offset;
-
-		sdram_addr <= cpu_tag & cpu_index & transfer_offset;
-
-		sdram_wr_rd <= '0';
-
-		-- SDRAM DOUT -> SRAM DIN
-		mux1_sel <= '1';
-
-		if current_state = FETCH_STROBE then
-			sdram_mstrb <= '1';
+		-- CPU WRITE: CPU byte -> SRAM at Index & Offset
+		when COMPLETE_WRITE =>
+			sram_addr <= cpu_index & cpu_offset;
 			sram_wen <= '1';
-		end if;
+			mux1_sel <= '0';                  -- CPU DOUT -> SRAM DIN
 
-
-	-- CPU READ: SRAM at Index & Offset -> CPU
-	when READ_SETUP | READ_WAIT | COMPLETE_READ =>
-
-		sram_addr <= cpu_index & cpu_offset;
-		sram_wen <= '0';
-
-		-- SRAM DOUT -> CPU DIN
-		mux2_sel <= '1';
-
-
-	-- CPU WRITE: CPU byte -> SRAM at Index & Offset
-	when COMPLETE_WRITE =>
-
-		sram_addr <= cpu_index & cpu_offset;
-		sram_wen <= '1';
-
-	-- CPU DOUT -> SRAM DIN
-		mux1_sel <= '0';
-
-
-	when WAIT_RELEASE =>
-		cpu_rdy <= '1';
-
-		sram_addr <= cpu_index & cpu_offset;
-		mux2_sel <= '1';
+		when WAIT_RELEASE =>
+			cpu_rdy <= '1';
+			sram_addr <= cpu_index & cpu_offset;
+			mux2_sel <= '1';
 
 	end case;
-
-	end process;
+end process;
 
 end Behavioral;
-
-
