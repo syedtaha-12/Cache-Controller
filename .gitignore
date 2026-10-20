@@ -6,3 +6,5 @@
 !*.xise
 !*.xco
 !ipcore_dir/*.ngc
+!README.md
+!docs/waveforms/*.png
